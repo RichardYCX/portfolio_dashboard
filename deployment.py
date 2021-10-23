@@ -20,7 +20,8 @@ from IPython.display import display, HTML
 
 # In[12]:
 
-
+df_url = "https://drive.google.com/uc?export=download&id=11o7ffsWxu09zm75DtojsHPHRkZWl6fjl"
+urllib.request.urlretrieve(df_url, "df_combined.sav")
 df_combined = pickle.load(open('df_combined.pkl', 'rb'))
 benchmark_df = pickle.load(open('benchmark.pkl', 'rb'))
 benchmark_weights = pickle.load(open('benchmark_weights.pkl', 'rb'))

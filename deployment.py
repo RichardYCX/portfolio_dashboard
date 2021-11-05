@@ -261,4 +261,4 @@ def generate_sector_tickers_graph(sector_name):
     return fig
     
 if __name__ == '__main__': 
-    app.run_server(debug=True)
+    app.run_server()

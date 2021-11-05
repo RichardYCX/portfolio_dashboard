@@ -49,10 +49,11 @@ sector_names = ['Financial Services', 'Consumer Cyclical', 'Utilities', 'Healthc
                 'Basic Materials', 'Consumer Defensive', 'Technology', 'Real Estate', 'Energy', 
                 'Industrials', 'Communication Services']
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+# external_stylesheets = 'https://codepen.io/chriddyp/pen/bWLwgP.css'
+external_stylesheets = [dbc.themes.BOOTSTRAP]
 navbarcurrentpage = {
     'text-decoration' : 'underline',
-    'text-decoration-color' : '251, 0, 0',
+    'text-decoration-color' : '100, 0, 0',
     'text-shadow': '0px 0px 1px rgb(251, 251, 252)'
     }
     
@@ -76,55 +77,57 @@ def get_header():
     return header
     
 def get_navbar(p = 'portfolio'):
-    navbar_portfolio = html.Div([
+    navbar_portfolio = html.Div([dbc.Row([
+    
 
-        html.Div([], className = 'col-3'),
+        dbc.Col([], width=4),
 
-        html.Div([
+        dbc.Col([
             dcc.Link(
                 html.H4(children = 'Portfolio Overview',
                         style = navbarcurrentpage),
                 href='/apps/portfolio-overview'
                 )
-        ],
-        className='col-2'),
+        ],width=4,
+        className='six columns'),
 
-        html.Div([
+        dbc.Col([
             dcc.Link(
                 html.H4(children = 'Macro Trends'),
                 href='/apps/macro'
                 )
-        ],
-        className='col-2'),
+        ],width=4,
+        className='six columns'),
 
-        html.Div([], className = 'col-3')],
+        dbc.Col([], width=4)])],
         
         className = 'row',
         style = {'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
         )
         
-    navbar_macro = html.Div([
+    navbar_macro = html.Div([dbc.Row([
+    
 
-        html.Div([], className = 'col-3'),
+        dbc.Col([], width=4),
 
-        html.Div([
+        dbc.Col([
             dcc.Link(
                 html.H4(children = 'Portfolio Overview'),
                 href='/apps/portfolio-overview'
                 )
-        ],
-        className='col-2'),
+        ],width=4,
+        className='six columns'),
 
-        html.Div([
+        dbc.Col([
             dcc.Link(
                 html.H4(children = 'Macro Trends',
                         style = navbarcurrentpage),
                 href='/apps/macro'
                 )
-        ],
-        className='col-2'),
+        ],width=4,
+        className='six columns'),
 
-        html.Div([], className = 'col-3')],
+        dbc.Col([], width=4)])],
         
         className = 'row',
         style = {'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
@@ -139,6 +142,7 @@ app.layout = html.Div([
     dcc.Location(id='url', refresh=False),
     html.Div(id='page-content')
 ])
+
 
 portfolio = html.Div([
     #####################
@@ -155,8 +159,17 @@ portfolio = html.Div([
                  for x in sector_names],
         value=sector_names[0]
     ),
-    dcc.Graph(id = 'performance_plot'),
-    dcc.Graph(id = 'tickers_plot')
+    dbc.Row([
+    dbc.Col([
+            html.H3('performance'),
+            dcc.Graph(id = 'performance_plot')
+        ], className="six columns"),
+
+        dbc.Col([
+            html.H3('tickers'),
+            dcc.Graph(id = 'tickers_plot')
+        ], className="six columns"),
+    ], className="row")
 ]) 
 
 macro = html.Div([
@@ -220,6 +233,7 @@ def sector_performance_graph(sector_name):
     compare_df[f'{sector_name} benchmark'] = (benchmark_wealth+1).cumprod()
 
     fig = px.line(compare_df, title = f'{sector_name} portfolio performance against benchmark')
+    fig.update_layout(hovermode="x unified")
     return fig
     
 @app.callback(Output(component_id='tickers_plot', component_property= 'figure'),
@@ -243,7 +257,8 @@ def generate_sector_tickers_graph(sector_name):
     compare_df[f'{sector_name} benchmark'] = benchmark_ticker_count+1
 
     fig = px.line(compare_df, title = f'{sector_name} portfolio ticker count against benchmark')
+    fig.update_layout(hovermode="x unified")
     return fig
     
 if __name__ == '__main__': 
-    app.run_server()
+    app.run_server(debug=True)

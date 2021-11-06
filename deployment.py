@@ -40,6 +40,7 @@ features_impt_diff = pickle.load(open('features_impt_diff.pkl', 'rb'))
 states = pickle.load(open('states.pkl', 'rb'))
 simulation = pickle.load(open('simulation.pkl', 'rb'))
 regimes = mpimg.imread('regimes.jpg')
+simulation_img = mpimg.imread('simulation.jpg')
 
 
 # In[21]:
@@ -110,6 +111,8 @@ def portfolio_returns():
 def vix_regimes_graph():
     fig = px.imshow(regimes)
     fig.update_traces(hovertemplate=None, hoverinfo='skip')
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
     return fig
 
 def simulation_distribution_graph():
@@ -121,8 +124,10 @@ def simulation_distribution_graph():
     return fig
 
 def simulation_graph():
-    fig = px.line(simulation.iloc[:, :100],title="1000 10-year simulations of wealth plots", labels={'index':'month', 'value': 'wealth', 'variable':'simulation no.'})
-    fig.add_hline(y=1000,line_width=2, line_dash="dash", line_color="red",)
+    fig = px.imshow(simulation_img)
+    fig.update_traces(hovertemplate=None, hoverinfo='skip')
+    fig.update_xaxes(visible=False)
+    fig.update_yaxes(visible=False)
     return fig
     
 # In[25]:

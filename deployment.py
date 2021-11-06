@@ -7,6 +7,7 @@
 import pickle
 import urllib
 import pandas as pd
+import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
@@ -28,6 +29,7 @@ benchmark_df = pickle.load(open('benchmark.pkl', 'rb'))
 benchmark_weights = pickle.load(open('benchmark_weights.pkl', 'rb'))
 df_portfolio_weights_after_rebalancing = pickle.load(open('df_portfolio_weights_after_rebalancing.pkl', 'rb'))
 sector_tickers = pickle.load(open('sector_tickers.pkl', 'rb'))
+spx = pickle.load(open('spx.pkl', 'rb'))
 
 
 # In[21]:
@@ -42,6 +44,37 @@ def sector_benchmark(tickers):
     sector_benchmark_df = sector_benchmark_df.loc[:benchmark_df.index.get_level_values(0).unique()[-2]]
     return sector_benchmark_df
 
+def portfolio_performance_graph():
+    portfolio = df_portfolio_weights_after_rebalancing.copy()
+    portfolio = portfolio.join(benchmark_df, how='left')
+    wealth = (portfolio['weights']*portfolio['forward_rets'].values).groupby(level=0).sum()
+    wealth = wealth.shift(1) #becomes the actual return (not the fwd return)
+    start_date = wealth.index[0]
+    wealth.loc[start_date] = 0
+
+    compare_df = pd.DataFrame(index=wealth.index)
+    compare_df['portfolio'] = (wealth+1).cumprod()
+
+    benchmark_wealth = (spx['Close'].pct_change().loc[wealth.index])
+    benchmark_wealth.loc[start_date] = 0
+    compare_df['benchmark'] = (benchmark_wealth+1).cumprod()
+
+    tracking_error = np.sqrt(sum([val**2 for val in wealth - benchmark_wealth])) * 100
+    sharpe_ratio = wealth.mean()/wealth.std() * np.sqrt(252/12)
+    duration = compare_df['portfolio'].shape[0]/12
+    annual_returns = ((compare_df['portfolio'].iloc[-1])**(1/duration)-1)*100
+    ir = (annual_returns - ((compare_df['benchmark'].iloc[-1])**(1/duration)-1)*100)/tracking_error
+    
+    compare_df['portfolio'] = compare_df['portfolio'] * 100
+    compare_df['benchmark'] = compare_df['benchmark'] * 100
+
+    fig = px.line(compare_df, title=f"{duration:.2f} years backtest - Cum VA(Ann.Rtn={annual_returns:.2f}%, Sharpe={sharpe_ratio:.2f}, IR={ir:.2f}), TE={tracking_error:.2f}%",
+                    labels={
+                     "value": "performance (%)"
+                 })
+    fig.update_layout(hovermode="x unified")
+    return fig
+    
 # In[25]:
 macro_list = ['YC/USA3M - Rate', 'YC/USA2Y - Rate', 'YC/USA5Y - Rate', 'YC/USA10Y - Rate', 'vix', 'gold']
 
@@ -53,8 +86,14 @@ sector_names = ['Financial Services', 'Consumer Cyclical', 'Utilities', 'Healthc
 external_stylesheets = [dbc.themes.BOOTSTRAP]
 navbarcurrentpage = {
     'text-decoration' : 'underline',
+    'font-weight': 'bold',
     'text-decoration-color' : '100, 0, 0',
-    'text-shadow': '0px 0px 1px rgb(251, 251, 252)'
+	'text-shadow': '0px 0px 1px rgb(5, 251, 252)'
+    }
+
+titleStyle = {
+    'text-decoration' : 'underline',
+    'text-decoration-color' : '255, 0, 0',
     }
     
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -80,15 +119,15 @@ def get_navbar(p = 'portfolio'):
     navbar_portfolio = html.Div([dbc.Row([
     
 
-        dbc.Col([], width=4),
+        dbc.Col([], width=2),
 
         dbc.Col([
             dcc.Link(
-                html.H4(children = 'Portfolio Overview',
+                html.H4(children = 'Portfolio Performance',
                         style = navbarcurrentpage),
-                href='/apps/portfolio-overview'
+                href='/apps/portfolio-performance'
                 )
-        ],width=4,
+        ],width=6,
         className='six columns'),
 
         dbc.Col([
@@ -96,26 +135,25 @@ def get_navbar(p = 'portfolio'):
                 html.H4(children = 'Macro Trends'),
                 href='/apps/macro'
                 )
-        ],width=4,
+        ],width=3,
         className='six columns'),
 
-        dbc.Col([], width=4)])],
+        dbc.Col([], width=2)])],
         
-        className = 'row',
-        style = {'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
+        className = 'row'
         )
         
     navbar_macro = html.Div([dbc.Row([
     
 
-        dbc.Col([], width=4),
+        dbc.Col([], width=2),
 
         dbc.Col([
             dcc.Link(
-                html.H4(children = 'Portfolio Overview'),
-                href='/apps/portfolio-overview'
+                html.H4(children = 'Portfolio Performance'),
+                href='/apps/portfolio-performance'
                 )
-        ],width=4,
+        ],width=6,
         className='six columns'),
 
         dbc.Col([
@@ -124,13 +162,12 @@ def get_navbar(p = 'portfolio'):
                         style = navbarcurrentpage),
                 href='/apps/macro'
                 )
-        ],width=4,
+        ],width=3,
         className='six columns'),
 
-        dbc.Col([], width=4)])],
+        dbc.Col([], width=2)])],
         
-        className = 'row',
-        style = {'box-shadow': '2px 5px 5px 1px rgba(255, 101, 131, .5)'}
+        className = 'row'
         )
     
     if p == 'portfolio':
@@ -152,21 +189,22 @@ portfolio = html.Div([
     #####################
     #Row 2 : Nav bar 
     get_navbar('portfolio'),
-
+    dbc.Row([html.H3('Portfolio Overview', style=titleStyle), dcc.Graph(figure=portfolio_performance_graph())]),
+    dbc.Row([html.H3('Sector Overview', style=titleStyle),
     dcc.Dropdown(
         id="dropdown",
         options=[{"label": x, "value": x} 
                  for x in sector_names],
         value=sector_names[0]
-    ),
+    )]),
     dbc.Row([
     dbc.Col([
-            html.H3('performance'),
+            html.H4('Sector performance'),
             dcc.Graph(id = 'performance_plot')
         ], className="six columns"),
 
         dbc.Col([
-            html.H3('tickers'),
+            html.H4('Sector tickers'),
             dcc.Graph(id = 'tickers_plot')
         ], className="six columns"),
     ], className="row")
@@ -180,21 +218,23 @@ macro = html.Div([
     #####################
     #Row 2 : Nav bar 
     get_navbar('macro'),
-
-    dcc.Dropdown(
-        id="dropdown2",
-        options=[{"label": x, "value": x} 
-                 for x in macro_list],
-        value=macro_list[:2],
-        multi=True
-    ),
-    dcc.Graph(id='macro')
+    dbc.Row([
+        html.H4('Macro Indicators'),
+        dcc.Dropdown(
+            id="dropdown2",
+            options=[{"label": x, "value": x} 
+                     for x in macro_list],
+            value=macro_list[:2],
+            multi=True
+        ),
+        dcc.Graph(id='macro')
+    ])
 ])   
     
 @app.callback(dash.dependencies.Output('page-content', 'children'),
               [dash.dependencies.Input('url', 'pathname')])
 def display_page(pathname):
-    if pathname == '/apps/portfolio-overview':
+    if pathname == '/apps/portfolio-performance':
          return portfolio
     elif pathname == '/apps/macro':
          return macro
@@ -231,8 +271,14 @@ def sector_performance_graph(sector_name):
     benchmark_wealth = benchmark_wealth["forward_rets"].groupby("date").mean()
     benchmark_wealth.loc[start_date] = 0
     compare_df[f'{sector_name} benchmark'] = (benchmark_wealth+1).cumprod()
-
-    fig = px.line(compare_df, title = f'{sector_name} portfolio performance against benchmark')
+    
+    compare_df[f'{sector_name} portfolio'] = compare_df[f'{sector_name} portfolio'] * 100
+    compare_df[f'{sector_name} benchmark'] = compare_df[f'{sector_name} benchmark'] * 100
+    
+    fig = px.line(compare_df, title = f'{sector_name} portfolio performance against benchmark',
+                    labels={
+                     "value": "performance (%)"
+                 })
     fig.update_layout(hovermode="x unified")
     return fig
     
@@ -256,9 +302,12 @@ def generate_sector_tickers_graph(sector_name):
     benchmark_ticker_count = benchmark_ticker_count["forward_rets"].groupby("date").count()
     compare_df[f'{sector_name} benchmark'] = benchmark_ticker_count+1
 
-    fig = px.line(compare_df, title = f'{sector_name} portfolio ticker count against benchmark')
+    fig = px.line(compare_df, title = f'{sector_name} portfolio ticker count against benchmark',
+                    labels={
+                     "value": "ticker count"
+                 })
     fig.update_layout(hovermode="x unified")
     return fig
     
 if __name__ == '__main__': 
-    app.run_server()
+    app.run_server(debug=True)

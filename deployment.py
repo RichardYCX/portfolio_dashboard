@@ -10,6 +10,10 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.image as mpimg
+import warnings
 
 import dash
 from dash import dcc, html
@@ -33,6 +37,10 @@ spx = pickle.load(open('spx.pkl', 'rb'))
 features_impt_bm = pickle.load(open('features_impt_bm.pkl', 'rb'))
 features_impt_port = pickle.load(open('features_impt_port.pkl', 'rb'))
 features_impt_diff = pickle.load(open('features_impt_diff.pkl', 'rb'))
+states = pickle.load(open('states.pkl', 'rb'))
+simulation = pickle.load(open('simulation.pkl', 'rb'))
+regimes = mpimg.imread('regimes.jpg')
+
 
 # In[21]:
 
@@ -76,6 +84,46 @@ def portfolio_performance_graph():
                  })
     fig.update_layout(hovermode="x unified")
     return fig
+
+def portfolio_returns():
+    portfolio = df_portfolio_weights_after_rebalancing.copy()
+    portfolio = portfolio.join(benchmark_df, how='left')
+    wealth = (portfolio['weights']*portfolio['forward_rets'].values).groupby(level=0).sum()
+    wealth = wealth.shift(1) #becomes the actual return (not the fwd return)
+    start_date = wealth.index[0]
+    wealth.loc[start_date] = 0
+
+    compare_df = pd.DataFrame(index=wealth.index)
+    compare_df['portfolio'] = (wealth+1).cumprod()
+
+    benchmark_wealth = (spx['Close'].pct_change().loc[wealth.index])
+    benchmark_wealth.loc[start_date] = 0
+    compare_df['benchmark'] = (benchmark_wealth+1).cumprod()
+
+    tracking_error = np.sqrt(sum([val**2 for val in wealth - benchmark_wealth])) * 100
+    sharpe_ratio = wealth.mean()/wealth.std() * np.sqrt(252/12)
+    duration = compare_df['portfolio'].shape[0]/12
+    annual_returns = ((compare_df['portfolio'].iloc[-1])**(1/duration)-1)*100
+    return wealth, annual_returns
+
+
+def vix_regimes_graph():
+    fig = px.imshow(regimes)
+    fig.update_traces(hovertemplate=None, hoverinfo='skip')
+    return fig
+
+def simulation_distribution_graph():
+    mc_sim = ((simulation.iloc[-1,:]-simulation.iloc[0,:])/simulation.iloc[0,:]-1)
+    fig = px.histogram(mc_sim, title="Average teminal values of 1000 10-year simulation",
+                      labels={'value':'month'})
+    fig.add_vline(x=0,line_width=2, line_dash="dash", line_color="red")
+    fig.update_layout(showlegend=False) 
+    return fig
+
+def simulation_graph():
+    fig = px.line(simulation.iloc[:, :100],title="1000 10-year simulations of wealth plots", labels={'index':'month', 'value': 'wealth', 'variable':'simulation no.'})
+    fig.add_hline(y=1000,line_width=2, line_dash="dash", line_color="red",)
+    return fig
     
 # In[25]:
 macro_list = ['YC/USA3M - Rate', 'YC/USA2Y - Rate', 'YC/USA5Y - Rate', 'YC/USA10Y - Rate', 'vix', 'gold']
@@ -109,7 +157,7 @@ def get_header():
     header = html.Div([
     html.Div([], className = 'col-2'),
     html.Div([
-                html.H1(children='Portfolio Performance Dashboard',
+                html.H1(children='Oracle Dashboard',
                         style = {'textAlign' : 'center'}
                 )],
                 className='col-8',
@@ -124,7 +172,7 @@ def get_navbar(p = 'portfolio'):
     navbar_portfolio = html.Div([dbc.Row([
     
 
-        dbc.Col([], width=2),
+        dbc.Col([], width=1),
 
         dbc.Col([
             dcc.Link(
@@ -145,13 +193,21 @@ def get_navbar(p = 'portfolio'):
         
         dbc.Col([
             dcc.Link(
+                html.H4(children = 'Stress Test'),
+                href='/apps/stress-test'
+                )
+        ],width=2,
+        className='six columns'),
+        
+        dbc.Col([
+            dcc.Link(
                 html.H4(children = 'Macro Trends'),
                 href='/apps/macro'
                 )
         ],width=3,
         className='six columns'),
 
-        dbc.Col([], width=2)])],
+        dbc.Col([], width=1)])],
         
         className = 'row'
         )
@@ -159,7 +215,7 @@ def get_navbar(p = 'portfolio'):
     navbar_attribution = html.Div([dbc.Row([
     
 
-        dbc.Col([], width=2),
+        dbc.Col([], width=1),
 
         dbc.Col([
             dcc.Link(
@@ -168,7 +224,7 @@ def get_navbar(p = 'portfolio'):
                 )
         ],width=3,
         className='six columns'),
-        
+
         dbc.Col([
             dcc.Link(
                 html.H4(children = 'Portfolio Attribution',
@@ -177,7 +233,15 @@ def get_navbar(p = 'portfolio'):
                 )
         ],width=3,
         className='six columns'),
-
+        
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Stress Test'),
+                href='/apps/stress-test'
+                )
+        ],width=2,
+        className='six columns'),
+        
         dbc.Col([
             dcc.Link(
                 html.H4(children = 'Macro Trends'),
@@ -186,15 +250,15 @@ def get_navbar(p = 'portfolio'):
         ],width=3,
         className='six columns'),
 
-        dbc.Col([], width=2)])],
+        dbc.Col([], width=1)])],
         
         className = 'row'
         )
         
-    navbar_macro = html.Div([dbc.Row([
+    navbar_stresstest = html.Div([dbc.Row([
     
 
-        dbc.Col([], width=2),
+        dbc.Col([], width=1),
 
         dbc.Col([
             dcc.Link(
@@ -203,7 +267,7 @@ def get_navbar(p = 'portfolio'):
                 )
         ],width=3,
         className='six columns'),
-        
+
         dbc.Col([
             dcc.Link(
                 html.H4(children = 'Portfolio Attribution'),
@@ -211,7 +275,58 @@ def get_navbar(p = 'portfolio'):
                 )
         ],width=3,
         className='six columns'),
+        
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Stress Test',
+                        style = navbarcurrentpage),
+                href='/apps/stress-test'
+                )
+        ],width=2,
+        className='six columns'),
+        
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Macro Trends'),
+                href='/apps/macro'
+                )
+        ],width=3,
+        className='six columns'),
 
+        dbc.Col([], width=1)])],
+        
+        className = 'row'
+        )
+        
+    navbar_macro = html.Div([dbc.Row([
+    
+
+        dbc.Col([], width=1),
+
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Portfolio Performance'),
+                href='/apps/portfolio-performance'
+                )
+        ],width=3,
+        className='six columns'),
+
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Portfolio Attribution'),
+                href='/apps/portfolio-attribution'
+                )
+        ],width=3,
+        className='six columns'),
+        
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Stress Test'),
+                href='/apps/stress-test'
+                )
+        ],width=2,
+        className='six columns'),
+        
         dbc.Col([
             dcc.Link(
                 html.H4(children = 'Macro Trends',
@@ -221,7 +336,7 @@ def get_navbar(p = 'portfolio'):
         ],width=3,
         className='six columns'),
 
-        dbc.Col([], width=2)])],
+        dbc.Col([], width=1)])],
         
         className = 'row'
         )
@@ -230,6 +345,8 @@ def get_navbar(p = 'portfolio'):
         return navbar_portfolio
     elif p == 'attribution':
         return navbar_attribution
+    elif p == 'stress-test':
+        return navbar_stresstest
     elif p == 'macro':
         return navbar_macro
 
@@ -277,7 +394,7 @@ attribution = html.Div([
     #Row 2 : Nav bar 
     get_navbar('attribution'),
     dbc.Row([
-        html.H4('Portfolio Attribution'),
+        html.H4('Micro/Macro Factors'),
         dcc.Dropdown(
             id="dropdown3",
             options=[{"label": x, "value": x} 
@@ -295,6 +412,32 @@ attribution = html.Div([
         ], className="six columns")
     ], className="row")
 ])   
+
+stress_test = html.Div([
+    #####################
+    #Row 1 : Header
+    get_header(),
+
+    #####################
+    #Row 2 : Nav bar 
+    get_navbar('stress-test'),
+    dbc.Row([  
+        html.H4('Historical VIX Regimes', style=titleStyle),
+        dcc.Graph(figure=vix_regimes_graph())]),
+    dbc.Row([  
+        html.H4('Portfolio Simulation (1000 times) with initial capital of $1000', style=titleStyle)]),
+    dbc.Row([
+        dbc.Col([
+            html.H5('Simulation Histogram'),
+            dcc.Graph(figure=simulation_distribution_graph())
+        ], className="six columns"),
+
+        dbc.Col([
+            html.H5('Simulation Results'),
+            dcc.Graph(figure=simulation_graph())
+        ], className="six columns")
+    ], className="row")
+]) 
 
 macro = html.Div([
     #####################
@@ -324,6 +467,8 @@ def display_page(pathname):
          return portfolio
     elif pathname == '/apps/portfolio-attribution':
          return attribution
+    elif pathname == '/apps/stress-test':
+         return stress_test
     elif pathname == '/apps/macro':
          return macro
     else:

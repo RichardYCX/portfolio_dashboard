@@ -30,7 +30,9 @@ benchmark_weights = pickle.load(open('benchmark_weights.pkl', 'rb'))
 df_portfolio_weights_after_rebalancing = pickle.load(open('df_portfolio_weights_after_rebalancing.pkl', 'rb'))
 sector_tickers = pickle.load(open('sector_tickers.pkl', 'rb'))
 spx = pickle.load(open('spx.pkl', 'rb'))
-
+features_impt_bm = pickle.load(open('features_impt_bm.pkl', 'rb'))
+features_impt_port = pickle.load(open('features_impt_port.pkl', 'rb'))
+features_impt_diff = pickle.load(open('features_impt_diff.pkl', 'rb'))
 
 # In[21]:
 
@@ -82,6 +84,9 @@ sector_names = ['Financial Services', 'Consumer Cyclical', 'Utilities', 'Healthc
                 'Basic Materials', 'Consumer Defensive', 'Technology', 'Real Estate', 'Energy', 
                 'Industrials', 'Communication Services']
 
+attribution_factors = ['macro_market_risk', 'macro_volatility', 'micro_earnings', 'micro_financial_risk',
+                       'micro_size', 'micro_valuation']
+
 # external_stylesheets = 'https://codepen.io/chriddyp/pen/bWLwgP.css'
 external_stylesheets = [dbc.themes.BOOTSTRAP]
 navbarcurrentpage = {
@@ -127,7 +132,50 @@ def get_navbar(p = 'portfolio'):
                         style = navbarcurrentpage),
                 href='/apps/portfolio-performance'
                 )
-        ],width=6,
+        ],width=3,
+        className='six columns'),
+
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Portfolio Attribution'),
+                href='/apps/portfolio-attribution'
+                )
+        ],width=3,
+        className='six columns'),
+        
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Macro Trends'),
+                href='/apps/macro'
+                )
+        ],width=3,
+        className='six columns'),
+
+        dbc.Col([], width=2)])],
+        
+        className = 'row'
+        )
+    
+    navbar_attribution = html.Div([dbc.Row([
+    
+
+        dbc.Col([], width=2),
+
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Portfolio Performance'),
+                href='/apps/portfolio-performance'
+                )
+        ],width=3,
+        className='six columns'),
+        
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Portfolio Attribution',
+                        style = navbarcurrentpage),
+                href='/apps/portfolio-attribution'
+                )
+        ],width=3,
         className='six columns'),
 
         dbc.Col([
@@ -153,7 +201,15 @@ def get_navbar(p = 'portfolio'):
                 html.H4(children = 'Portfolio Performance'),
                 href='/apps/portfolio-performance'
                 )
-        ],width=6,
+        ],width=3,
+        className='six columns'),
+        
+        dbc.Col([
+            dcc.Link(
+                html.H4(children = 'Portfolio Attribution'),
+                href='/apps/portfolio-attribution'
+                )
+        ],width=3,
         className='six columns'),
 
         dbc.Col([
@@ -172,6 +228,8 @@ def get_navbar(p = 'portfolio'):
     
     if p == 'portfolio':
         return navbar_portfolio
+    elif p == 'attribution':
+        return navbar_attribution
     elif p == 'macro':
         return navbar_macro
 
@@ -210,6 +268,34 @@ portfolio = html.Div([
     ], className="row")
 ]) 
 
+attribution = html.Div([
+    #####################
+    #Row 1 : Header
+    get_header(),
+
+    #####################
+    #Row 2 : Nav bar 
+    get_navbar('attribution'),
+    dbc.Row([
+        html.H4('Portfolio Attribution'),
+        dcc.Dropdown(
+            id="dropdown3",
+            options=[{"label": x, "value": x} 
+                     for x in attribution_factors],
+            value=attribution_factors[0]
+        )
+    ]),
+    dbc.Row([
+        dbc.Col([
+            dcc.Graph(id = 'attribution_plot')
+        ], className="six columns"),
+
+        dbc.Col([
+            dcc.Graph(id = 'attribution_diff_plot')
+        ], className="six columns")
+    ], className="row")
+])   
+
 macro = html.Div([
     #####################
     #Row 1 : Header
@@ -236,6 +322,8 @@ macro = html.Div([
 def display_page(pathname):
     if pathname == '/apps/portfolio-performance':
          return portfolio
+    elif pathname == '/apps/portfolio-attribution':
+         return attribution
     elif pathname == '/apps/macro':
          return macro
     else:
@@ -248,7 +336,23 @@ def update_bar_chart(dims):
     fig = px.scatter_matrix(
         df_combined, dimensions=dims)
     return fig
-    
+
+@app.callback(
+    Output("attribution_plot", "figure"), 
+    [Input("dropdown3", "value")])
+def attribution_graph(factor):
+    fig = go.Figure(layout = {"title":factor})
+    fig = fig.add_trace(go.Scatter(x=features_impt_port.index,y=features_impt_port[factor], name = "Portfolio"))
+    fig = fig.add_trace(go.Scatter(x=features_impt_bm.index,y=features_impt_bm[factor], name = "Benchmark"))
+    return fig
+
+@app.callback(
+    Output("attribution_diff_plot", "figure"), 
+    [Input("dropdown3", "value")])
+def attribution_diff_graph(factor):
+    fig = px.line(features_impt_diff[factor], title="Difference between Portfolio and Benchmark")
+    return fig
+
 @app.callback(Output(component_id='performance_plot', component_property= 'figure'),
               [Input(component_id='dropdown', component_property= 'value')])
 def sector_performance_graph(sector_name):

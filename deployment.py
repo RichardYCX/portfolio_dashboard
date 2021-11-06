@@ -15,6 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import warnings
 
+import base64
+
 import dash
 from dash import dcc, html
 from dash.dependencies import Input, Output, State
@@ -40,11 +42,12 @@ features_impt_diff = pickle.load(open('features_impt_diff.pkl', 'rb'))
 states = pickle.load(open('states.pkl', 'rb'))
 simulation = pickle.load(open('simulation.pkl', 'rb'))
 regimes = mpimg.imread('regimes.jpg')
-simulation_img = mpimg.imread('simulation.jpg')
+simulation_img = mpimg.imread('simulation.png')
 
 
 # In[21]:
-
+simulation_img = base64.b64encode(open('simulation.png', 'rb').read()).decode('ascii')
+regimes = base64.b64encode(open('regimes.jpg', 'rb').read()).decode('ascii')
 
 def sector_benchmark(tickers):
     sector_benchmark = benchmark_weights[benchmark_weights.index.get_level_values("ticker").isin(tickers)]
@@ -150,8 +153,10 @@ navbarcurrentpage = {
     }
 
 titleStyle = {
-    'text-decoration' : 'underline',
     'text-decoration-color' : '255, 0, 0',
+    'textAlign' : 'center',
+    'border-top': '2px solid black',
+    'border-bottom': '2px solid black'
     }
     
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
@@ -163,7 +168,7 @@ def get_header():
     html.Div([], className = 'col-2'),
     html.Div([
                 html.H1(children='Oracle Dashboard',
-                        style = {'textAlign' : 'center'}
+                        style = {'textAlign' : 'center', 'font-weight': 'bold'}
                 )],
                 className='col-8',
                 style = {'padding-top' : '1%'}
@@ -369,24 +374,30 @@ portfolio = html.Div([
     #####################
     #Row 2 : Nav bar 
     get_navbar('portfolio'),
-    dbc.Row([html.H3('Portfolio Overview', style=titleStyle), dcc.Graph(figure=portfolio_performance_graph())]),
-    dbc.Row([html.H3('Sector Overview', style=titleStyle),
-    dcc.Dropdown(
-        id="dropdown",
-        options=[{"label": x, "value": x} 
-                 for x in sector_names],
-        value=sector_names[0]
-    )]),
     dbc.Row([
-    dbc.Col([
-            html.H4('Sector performance'),
-            dcc.Graph(id = 'performance_plot')
-        ], className="six columns"),
-
+        html.H4('Portfolio Overview', style=titleStyle), 
+        dcc.Graph(figure=portfolio_performance_graph())
+    ]),
+    dbc.Row([
+        html.H4('Sector Overview', style=titleStyle),
+        dcc.Dropdown(
+            id="dropdown",
+            options=[{"label": x, "value": x} 
+                     for x in sector_names],
+            value=sector_names[0])
+    ]),
+    dbc.Row([
         dbc.Col([
-            html.H4('Sector tickers'),
-            dcc.Graph(id = 'tickers_plot')
-        ], className="six columns"),
+                html.H4('Sector performance',
+                        style = {'textAlign' : 'center'}),
+                dcc.Graph(id = 'performance_plot')
+            ], className="six columns"),
+
+            dbc.Col([
+                html.H4('Sector tickers',
+                        style = {'textAlign' : 'center'}),
+                dcc.Graph(id = 'tickers_plot')
+            ], className="six columns"),
     ], className="row")
 ]) 
 
@@ -399,7 +410,7 @@ attribution = html.Div([
     #Row 2 : Nav bar 
     get_navbar('attribution'),
     dbc.Row([
-        html.H4('Micro/Macro Factors'),
+        html.H4('Micro/Macro Factor Attribution', style=titleStyle),
         dcc.Dropdown(
             id="dropdown3",
             options=[{"label": x, "value": x} 
@@ -428,18 +439,22 @@ stress_test = html.Div([
     get_navbar('stress-test'),
     dbc.Row([  
         html.H4('Historical VIX Regimes', style=titleStyle),
-        dcc.Graph(figure=vix_regimes_graph())]),
+        html.Img(src='data:image/jpg;base64,{}'.format(regimes), style={'height':'400px', 'width':'auto',
+                                                          'display': 'block', 'margin-left': 'auto', 'margin-right': 'auto'})
+    ]),
     dbc.Row([  
         html.H4('Portfolio Simulation (1000 times) with initial capital of $1000', style=titleStyle)]),
     dbc.Row([
         dbc.Col([
-            html.H5('Simulation Histogram'),
+            html.H5('Simulation Histogram',
+                        style = {'textAlign' : 'center'}),
             dcc.Graph(figure=simulation_distribution_graph())
         ], className="six columns"),
 
         dbc.Col([
-            html.H5('Simulation Results'),
-            dcc.Graph(figure=simulation_graph())
+            html.H5('Simulation Results',
+                        style = {'textAlign' : 'center'}),
+            html.Img(src='data:image/png;base64,{}'.format(simulation_img), style={'height':'auto', 'width':'100%'})
         ], className="six columns")
     ], className="row")
 ]) 
@@ -453,7 +468,7 @@ macro = html.Div([
     #Row 2 : Nav bar 
     get_navbar('macro'),
     dbc.Row([
-        html.H4('Macro Indicators'),
+        html.H4('Macro Factors Scatterplot', style=titleStyle),
         dcc.Dropdown(
             id="dropdown2",
             options=[{"label": x, "value": x} 

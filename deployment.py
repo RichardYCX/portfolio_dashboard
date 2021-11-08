@@ -414,13 +414,13 @@ portfolio = html.Div([
                 html.H4('Sector performance',
                         style = {'textAlign' : 'center'}),
                 dcc.Graph(id = 'performance_plot')
-            ], className="six columns"),
+            ], width=6),
 
             dbc.Col([
                 html.H4('Sector tickers',
                         style = {'textAlign' : 'center'}),
                 dcc.Graph(id = 'tickers_plot')
-            ], className="six columns"),
+            ], width=6),
     ], className="row")
 ]) 
 
@@ -444,11 +444,11 @@ attribution = html.Div([
     dbc.Row([
         dbc.Col([
             dcc.Graph(id = 'attribution_plot')
-        ], className="six columns"),
+        ], width=6),
 
         dbc.Col([
             dcc.Graph(id = 'attribution_diff_plot')
-        ], className="six columns")
+        ], width=6)
     ], className="row")
 ])   
 
@@ -472,13 +472,13 @@ stress_test = html.Div([
             html.H5('Simulation Histogram',
                         style = {'textAlign' : 'center'}),
             dcc.Graph(figure=simulation_distribution_graph())
-        ], className="six columns"),
+        ], width=6),
 
         dbc.Col([
             html.H5('Simulation Results',
                         style = {'textAlign' : 'center'}),
             html.Img(src='data:image/png;base64,{}'.format(simulation_img), style={'height':'auto', 'width':'100%'})
-        ], className="six columns")
+        ], width=6)
     ], className="row")
 ]) 
 

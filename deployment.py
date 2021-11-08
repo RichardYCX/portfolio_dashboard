@@ -10,6 +10,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
+from dash.dash_table import DataTable
 import seaborn as sns
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
@@ -57,7 +58,16 @@ def sector_benchmark(tickers):
     sector_benchmark_df = sector_benchmark_df.join(forward_1m_change.stack().to_frame('forward_rets'), how='left')
     sector_benchmark_df = sector_benchmark_df.loc[:benchmark_df.index.get_level_values(0).unique()[-2]]
     return sector_benchmark_df
-
+    
+def portfolio_tickers():
+    portfolio_tickers = df_portfolio_weights_after_rebalancing.copy()
+    portfolio_tickers = portfolio_tickers[portfolio_tickers['weights'] != 0].reset_index()
+    portfolio_tickers = portfolio_tickers[portfolio_tickers['date'] == max(portfolio_tickers['date'])]
+    portfolio_tickers.sort_values('weights', axis=0, ascending=False, inplace=True)
+    portfolio_tickers.drop(columns=['date'], inplace=True)
+    portfolio_tickers.rename(columns={"weights": "position size"}, inplace=True)
+    return portfolio_tickers
+    
 def portfolio_performance_graph():
     portfolio = df_portfolio_weights_after_rebalancing.copy()
     portfolio = portfolio.join(benchmark_df, how='left')
@@ -376,7 +386,20 @@ portfolio = html.Div([
     get_navbar('portfolio'),
     dbc.Row([
         html.H4('Portfolio Overview', style=titleStyle), 
-        dcc.Graph(figure=portfolio_performance_graph())
+        dbc.Col([
+            html.H4('Performance', style = {'textAlign' : 'center'}),
+            dcc.Graph(figure=portfolio_performance_graph())
+        ], width=9),
+        dbc.Col([
+            html.H4('Current Tickers', style = {'textAlign' : 'center'}),
+            DataTable(
+                id='table',
+                columns=[{"name": i, "id": i} for i in portfolio_tickers().columns],
+                data=portfolio_tickers().to_dict('records'),
+                page_action='none',
+                style_table={'height': '400px', 'overflowY': 'auto'},
+            )
+        ], width=3)
     ]),
     dbc.Row([
         html.H4('Sector Overview', style=titleStyle),

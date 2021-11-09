@@ -65,7 +65,8 @@ def portfolio_tickers():
     portfolio_tickers = portfolio_tickers[portfolio_tickers['date'] == max(portfolio_tickers['date'])]
     portfolio_tickers.sort_values('weights', axis=0, ascending=False, inplace=True)
     portfolio_tickers.drop(columns=['date'], inplace=True)
-    portfolio_tickers.rename(columns={"weights": "position size"}, inplace=True)
+    portfolio_tickers['weights'] = portfolio_tickers['weights'] * 100 
+    portfolio_tickers.rename(columns={"weights": "position size (%)"}, inplace=True)
     return portfolio_tickers
     
 def portfolio_performance_graph():
